@@ -169,7 +169,7 @@ def plot_confusion_matrix(model, scaler, X_test, y_test, name):
     plt.figure(figsize=(5, 4))
     sns.heatmap(cm, annot=True, fmt="d", cmap="Blues",
                 xticklabels=["Retained", "Churned"], yticklabels=["Retained", "Churned"])
-    plt.title(f"Confusion Matrix â {name}")
+    plt.title(f"Confusion Matrix - {name}")
     plt.ylabel("Actual")
     plt.xlabel("Predicted")
     plt.savefig(f"{REPORT_DIR}/confusion_matrix_{name.replace(' ', '_').lower()}.png",
