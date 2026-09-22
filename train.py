@@ -43,6 +43,17 @@ NUMERIC_COLS = [
 
 
 def load_and_prepare(path=DATA_PATH):
+    """Load the churn CSV and split it into a one-hot-encoded feature matrix.
+
+    Categorical columns are one-hot encoded (drop_first=True), and the
+    identifier and target columns are dropped from the feature matrix.
+
+    Args:
+        path: Path to the churn CSV (must contain "customer_id" and "churn").
+
+    Returns:
+        A tuple (X, y) of the feature DataFrame and the churn target Series.
+    """
     df = pd.read_csv(path)
     df = pd.get_dummies(df, columns=CATEGORICAL_COLS, drop_first=True)
     X = df.drop(columns=["customer_id", "churn"])
@@ -51,6 +62,22 @@ def load_and_prepare(path=DATA_PATH):
 
 
 def train_models(X_train, y_train):
+    """Fit Logistic Regression, Random Forest, and XGBoost on the training set.
+
+    Logistic Regression is trained on standardized features (tree-based
+    models are trained on the raw features, since scaling doesn't affect
+    them); XGBoost's hyperparameters are tuned with a small grid search
+    over ROC-AUC.
+
+    Args:
+        X_train: Training feature DataFrame.
+        y_train: Training target Series.
+
+    Returns:
+        A dict mapping model name -> (fitted model, fitted StandardScaler
+        or None). The scaler is only present for Logistic Regression and
+        must be applied to any data scored with that model.
+    """
     scaler = StandardScaler()
     X_train_scaled = scaler.fit_transform(X_train)
 
@@ -84,6 +111,20 @@ def train_models(X_train, y_train):
 
 
 def evaluate(models, X_test, y_test):
+    """Score every trained model on the held-out test set.
+
+    Prints accuracy, ROC-AUC, and a classification report per model, and
+    saves a combined ROC curve comparison to
+    "{REPORT_DIR}/roc_comparison.png".
+
+    Args:
+        models: Dict as returned by train_models (name -> (model, scaler)).
+        X_test: Test feature DataFrame.
+        y_test: Test target Series.
+
+    Returns:
+        A dict mapping model name -> {"accuracy": float, "roc_auc": float}.
+    """
     results = {}
     plt.figure(figsize=(7, 6))
     ax = plt.gca()
@@ -112,13 +153,23 @@ def evaluate(models, X_test, y_test):
 
 
 def plot_confusion_matrix(model, scaler, X_test, y_test, name):
+    """Save a confusion-matrix heatmap for one model to REPORT_DIR.
+
+    Args:
+        model: A fitted classifier with a predict() method.
+        scaler: Fitted StandardScaler to apply before predicting, or None
+            if the model was trained on unscaled features.
+        X_test: Test feature DataFrame.
+        y_test: Test target Series.
+        name: Model name, used in the plot title and output filename.
+    """
     X_eval = scaler.transform(X_test) if scaler else X_test
     preds = model.predict(X_eval)
     cm = confusion_matrix(y_test, preds)
     plt.figure(figsize=(5, 4))
     sns.heatmap(cm, annot=True, fmt="d", cmap="Blues",
                 xticklabels=["Retained", "Churned"], yticklabels=["Retained", "Churned"])
-    plt.title(f"Confusion Matrix – {name}")
+    plt.title(f"Confusion Matrix â {name}")
     plt.ylabel("Actual")
     plt.xlabel("Predicted")
     plt.savefig(f"{REPORT_DIR}/confusion_matrix_{name.replace(' ', '_').lower()}.png",
@@ -127,6 +178,14 @@ def plot_confusion_matrix(model, scaler, X_test, y_test, name):
 
 
 def main():
+    """Run the full pipeline: load data, train, evaluate, and save the best model.
+
+    Requires data/customer_churn.csv to already exist (run
+    generate_data.py first). Saves the best model (by ROC-AUC), its
+    scaler (if any), and the training feature columns to MODEL_DIR, plus
+    per-model confusion matrices, an ROC comparison plot, and a
+    metrics.json summary to REPORT_DIR.
+    """
     if not os.path.exists(DATA_PATH):
         raise FileNotFoundError("Run `python generate_data.py` first to create the dataset.")
 
