@@ -16,6 +16,16 @@ CATEGORICAL_COLS = [
 
 
 def load_artifacts(model_dir="models"):
+    """Load the saved model, feature columns, and optional scaler from disk.
+
+    Args:
+        model_dir: Directory containing best_model.pkl, feature_columns.pkl,
+            and (optionally) scaler.pkl, as saved by train.py.
+
+    Returns:
+        A tuple (model, scaler, feature_columns), where scaler is None if
+        the model wasn't trained on scaled features (e.g. tree-based models).
+    """
     model = joblib.load(f"{model_dir}/best_model.pkl")
     feature_columns = joblib.load(f"{model_dir}/feature_columns.pkl")
     try:
@@ -26,12 +36,38 @@ def load_artifacts(model_dir="models"):
 
 
 def prepare_features(df, feature_columns):
+    """One-hot encode categorical columns and align to the training feature set.
+
+    Args:
+        df: Raw customer DataFrame (without the customer_id column).
+        feature_columns: The exact column set/order the model was trained
+            on, as saved by train.py.
+
+    Returns:
+        A DataFrame one-hot encoded and reindexed to match feature_columns,
+        with any missing columns filled with 0.
+    """
     df_enc = pd.get_dummies(df, columns=CATEGORICAL_COLS, drop_first=True)
     df_enc = df_enc.reindex(columns=feature_columns, fill_value=0)
     return df_enc
 
 
 def predict(input_path, output_path, model_dir="models"):
+    """Score customers in input_path and write predictions to output_path.
+
+    Loads the saved model, prepares features, and computes a churn
+    probability, a binary prediction, and a risk tier (Low/Medium/High)
+    per customer.
+
+    Args:
+        input_path: Path to a CSV of customers to score (same schema as
+            the training data, minus the "churn" column).
+        output_path: Path to write the output CSV of predictions to.
+        model_dir: Directory containing the saved model artifacts.
+
+    Returns:
+        None. Writes results to output_path and prints a summary to stdout.
+    """
     model, scaler, feature_columns = load_artifacts(model_dir)
     df = pd.read_csv(input_path)
     ids = df["customer_id"] if "customer_id" in df else pd.Series(range(len(df)))
