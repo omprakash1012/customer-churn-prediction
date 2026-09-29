@@ -10,6 +10,29 @@ np.random.seed(42)
 N = 5000
 
 def generate_customers(n=N):
+    """Generate a synthetic customer table with a realistic latent churn signal.
+
+    Builds per-customer features (tenure, billing, contract type, support
+    history, demographics) from independent random distributions, then
+    derives a latent `churn_score` as a weighted combination of the risk
+    factors known to drive real-world churn (short tenure, high monthly
+    charges, frequent support calls/late payments, month-to-month
+    contracts, fiber internet, no tech support, electronic check payment)
+    plus Gaussian noise. The score is passed through a sigmoid to get a
+    per-customer churn probability, which is then sampled to produce the
+    binary `churn` label - so the signal is realistic but not deterministic.
+
+    Args:
+        n: Number of synthetic customers to generate. Defaults to the
+            module-level `N` (5000).
+
+    Returns:
+        pandas.DataFrame: One row per customer with columns
+            `customer_id, tenure_months, monthly_charges, total_charges,
+            contract_type, support_calls, late_payments, internet_service,
+            tech_support, paperless_billing, payment_method,
+            senior_citizen, partner, dependents, churn`.
+    """
     tenure_months = np.random.gamma(shape=2.0, scale=12, size=n).clip(1, 72).astype(int)
     monthly_charges = np.random.normal(70, 25, n).clip(15, 150)
     total_charges = monthly_charges * tenure_months * np.random.uniform(0.9, 1.1, n)
